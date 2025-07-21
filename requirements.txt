@@ -1,2 +1,4 @@
-textual
-textual-dev
+rich
+pynput
+pyyaml
+
