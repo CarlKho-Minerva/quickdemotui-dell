@@ -5,6 +5,7 @@ from rich.layout import Layout
 from rich.panel import Panel
 from rich.syntax import Syntax
 from rich.text import Text
+from rich.console import Group
 from pynput import keyboard
 
 # --- Configuration & Data ---
@@ -88,8 +89,10 @@ class SelectExperimentScreen:
             with open(experiment_info["yaml_file"], "r") as f:
                 yaml_content = f.read()
             syntax = Syntax(yaml_content, "yaml", theme="dracula", line_numbers=True)
+            # Use Group to properly combine Text and Syntax objects
+            content = Group(description, Text("\n"), syntax)
             return Panel(
-                f"{description}\n\n{syntax}", title="Preview", border_style="cyan"
+                content, title="Preview", border_style="cyan"
             )
         elif selected_item == "help":
             return Panel(
