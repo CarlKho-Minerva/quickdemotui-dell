@@ -1,4 +1,4 @@
-/* fault_injector.tcss */
+/* fault_injector.tcss (Updated) */
 
 Screen {
     layout: vertical;
@@ -7,18 +7,19 @@ Screen {
 Horizontal {
     layout: horizontal;
     height: 1fr;
-    /* Make the horizontal layout take all available space */
 }
 
 #options-pane {
-    width: 30%;
+    width: 40%;
+    /* Adjusted width for more space */
     height: 100%;
     border: heavy white;
     padding: 1;
 }
 
 #preview-pane {
-    width: 70%;
+    width: 60%;
+    /* Adjusted width */
     height: 100%;
     padding: 0 1;
 }
@@ -29,7 +30,7 @@ Horizontal {
 
 #description {
     height: auto;
-    margin: 1 0;
+    margin-bottom: 1;
     border: round white;
     padding: 1;
     color: $text-muted;
@@ -37,7 +38,18 @@ Horizontal {
 
 #code-preview {
     height: 1fr;
-    /* Take up the remaining space */
     border: round white;
     padding: 1;
+}
+
+/* --- New Styles for Modify Screen --- */
+
+#inject-button {
+    width: 100%;
+    margin-top: 1;
+}
+
+/* Style for labels in the parameter list */
+#options-pane Label {
+    margin-bottom: 1;
 }
