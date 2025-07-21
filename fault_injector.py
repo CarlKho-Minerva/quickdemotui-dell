@@ -97,9 +97,9 @@ class SelectExperimentScreen:
         elif selected_item == "help":
             return Panel(
                 f"{description}\n\n"
-                "This tool helps you inject faults into your Kubernetes cluster.\n"
-                "Use ↑ and ↓ arrow keys to navigate.\n"
-                "Press Enter to select an option.\n"
+                "This tool helps you inject faults into your Kubernetes cluster.\n\n"
+                "Use ↑ and ↓ arrow keys to navigate.\n\n"
+                "Press Enter to select an option.\n\n"
                 "Press 'q' to quit at any time.",
                 title="Help",
                 border_style="cyan",
