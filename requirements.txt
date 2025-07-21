@@ -1,4 +1,5 @@
 rich
 pynput
 pyyaml
-
+tempfile
+keyboard

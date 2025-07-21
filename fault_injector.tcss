@@ -1,0 +1,43 @@
+/* fault_injector.tcss */
+
+Screen {
+    layout: vertical;
+}
+
+Horizontal {
+    layout: horizontal;
+    height: 1fr;
+    /* Make the horizontal layout take all available space */
+}
+
+#options-pane {
+    width: 30%;
+    height: 100%;
+    border: heavy white;
+    padding: 1;
+}
+
+#preview-pane {
+    width: 70%;
+    height: 100%;
+    padding: 0 1;
+}
+
+#options-list {
+    border: none;
+}
+
+#description {
+    height: auto;
+    margin: 1 0;
+    border: round white;
+    padding: 1;
+    color: $text-muted;
+}
+
+#code-preview {
+    height: 1fr;
+    /* Take up the remaining space */
+    border: round white;
+    padding: 1;
+}
