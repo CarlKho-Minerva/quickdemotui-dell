@@ -1,4 +1,3 @@
-
 apiVersion: chaos-mesh.org/v1alpha1
 kind: StressChaos
 metadata:
