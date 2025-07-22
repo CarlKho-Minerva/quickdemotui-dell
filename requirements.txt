@@ -1,4 +1,6 @@
+# Python 3.11
 rich
 pynput
 pyyaml
-
+tempfile
+keyboard

@@ -1,0 +1,55 @@
+/* fault_injector.tcss (Updated) */
+
+Screen {
+    layout: vertical;
+}
+
+Horizontal {
+    layout: horizontal;
+    height: 1fr;
+}
+
+#options-pane {
+    width: 40%;
+    /* Adjusted width for more space */
+    height: 100%;
+    border: heavy white;
+    padding: 1;
+}
+
+#preview-pane {
+    width: 60%;
+    /* Adjusted width */
+    height: 100%;
+    padding: 0 1;
+}
+
+#options-list {
+    border: none;
+}
+
+#description {
+    height: auto;
+    margin-bottom: 1;
+    border: round white;
+    padding: 1;
+    color: $text-muted;
+}
+
+#code-preview {
+    height: 1fr;
+    border: round white;
+    padding: 1;
+}
+
+/* --- New Styles for Modify Screen --- */
+
+#inject-button {
+    width: 100%;
+    margin-top: 1;
+}
+
+/* Style for labels in the parameter list */
+#options-pane Label {
+    margin-bottom: 1;
+}
