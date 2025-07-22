@@ -1,4 +1,4 @@
-/* fault_injector.tcss (Updated) */
+/* fault_injector.tcss */
 
 Screen {
     layout: vertical;
@@ -52,4 +52,14 @@ Horizontal {
 /* Style for labels in the parameter list */
 #options-pane Label {
     margin-bottom: 1;
+}
+
+#log-output {
+    border: round white;
+    height: 1fr; /* Make the log view take up all available space */
+}
+
+/* Make the status text bold */
+#status-line {
+    text-style: bold;
 }

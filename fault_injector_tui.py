@@ -1,5 +1,6 @@
-# fault_injector_tui.py (Updated for Screen 2)
+# fault_injector_tui.py (Updated for Screen 3)
 
+import asyncio
 from textual.app import App, ComposeResult
 from textual.widgets import (
     Header,
@@ -10,6 +11,7 @@ from textual.widgets import (
     Label,
     Button,
     Input,
+    Log,
 )
 from textual.containers import Horizontal, Vertical
 from textual.binding import Binding
@@ -113,6 +115,110 @@ class ExperimentSelectionScreen(Screen):
         self.app.push_screen(ModifyConfigScreen(fault_name))
 
 
+class MonitoringScreen(Screen):
+    """A screen to display live logs and status of an active chaos experiment."""
+    
+    def __init__(self, kind: str, action: str, target: str, duration: str) -> None:
+        super().__init__()
+        self.kind = kind
+        self.action = action
+        self.target = target
+        self.duration = duration
+        
+    def compose(self) -> ComposeResult:
+        yield Header(name=f"Monitoring: {self.kind}/{self.action}")
+        with Horizontal():
+            with Vertical(id="options-pane"):
+                yield Static(f"[b]Status:[/b] ACTIVE", id="status-line")
+                yield Static(f"[b]Kind:[/b] {self.kind}")
+                yield Static(f"[b]Action:[/b] {self.action}")
+                yield Static(f"[b]Target:[/b]\n{self.target}")
+                yield Static(f"[b]Duration:[/b] {self.duration}")
+
+            with Vertical(id="preview-pane"):
+                # The Log widget is perfect for streaming output
+                yield Log(id="log-output", highlight=True)
+        yield Footer()
+
+    async def on_mount(self) -> None:
+        """Start the simulated log streaming when the screen is mounted."""
+        log_widget = self.query_one(Log)
+        
+        # Simulate a real process
+        log_widget.write_line(f"> Injecting chaos experiment '{self.kind.lower()}-example'...")
+        await asyncio.sleep(0.5)
+        log_widget.write_line("> SUCCESS: Chaos object created.")
+        await asyncio.sleep(0.5)
+        log_widget.write_line(f"> Monitoring logs for pods matching selector '{self.target.splitlines()[1].strip()}'...")
+        await asyncio.sleep(1)
+        log_widget.write_line("> [Output of kubectl logs -f --selector='...'...]")
+        await asyncio.sleep(1)
+        log_widget.write_line("> [NOT VISIBLE: Output of system-wide kubectl logs running in BACKGROUND]")
+        await asyncio.sleep(2)
+        log_widget.write_line(f"> CHAOS EVENT: Pod 'tikv-0' has been killed.")
+        await asyncio.sleep(0.5)
+        log_widget.write_line(f"> Experiment '{self.kind.lower()}-example' completed.")
+        log_widget.write_line("> Capturing final logs for analysis...")
+        await asyncio.sleep(1)
+        self.query_one("#status-line").update("[b]Status:[/b] COMPLETE")
+        # In a real app, you might then show a "New Experiment" button or auto-pop the screen.
+
+
+class ConfirmationScreen(Screen):
+    """A confirmation screen before executing potentially destructive chaos experiments."""
+    
+    def __init__(self, kind: str, action: str, target: str, duration: str) -> None:
+        super().__init__()
+        self.kind = kind
+        self.action = action
+        self.target = target
+        self.duration = duration
+        
+    def compose(self) -> ComposeResult:
+        yield Header(name="⚠️  Confirm Chaos Injection")
+        with Horizontal():
+            with Vertical(id="options-pane"):
+                yield Static("[b red]⚠️  WARNING: POTENTIALLY DESTRUCTIVE[/b red]")
+                yield Static("")
+                yield Static("You are about to inject chaos into your system:")
+                yield Static("")
+                yield Static(f"[b]Experiment Type:[/b] {self.kind}")
+                yield Static(f"[b]Action:[/b] {self.action}")
+                yield Static(f"[b]Duration:[/b] {self.duration}")
+                yield Static("")
+                yield Static("Target:")
+                yield Static(f"  {self.target}")
+                yield Static("")
+                yield Static("[b yellow]This may cause service disruption![/b yellow]")
+                
+                with Horizontal():
+                    yield Button("Execute", variant="error", id="confirm-button")
+                    yield Button("Cancel", variant="default", id="cancel-button")
+
+            with Vertical(id="preview-pane"):
+                yield Static("⚠️ [b]Please confirm your choice[/b]", id="warning-title")
+                yield Static("")
+                yield Static("This chaos experiment will:")
+                yield Static("• Potentially disrupt running services")
+                yield Static("• Affect pods matching the specified selector")
+                yield Static("• Run for the specified duration")
+                yield Static("• Generate logs and monitoring data")
+                yield Static("")
+                yield Static("[i]Make sure you understand the impact before proceeding.[/i]")
+                yield Static("")
+                yield Static("Logs will appear here once execution starts...")
+        yield Footer()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle confirmation or cancellation."""
+        if event.button.id == "confirm-button":
+            # User confirmed, proceed to monitoring screen
+            self.app.push_screen(MonitoringScreen(self.kind, self.action, self.target, self.duration))
+        elif event.button.id == "cancel-button":
+            # User cancelled, go back to config screen
+            self.app.pop_screen()
+
+
 class ModifyConfigScreen(Screen):
     """The second screen for modifying the YAML config of the selected experiment."""
 
@@ -143,6 +249,18 @@ class ModifyConfigScreen(Screen):
                 )
                 yield Static(id="code-preview")
         yield Footer()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle the 'Inject Chaos' button press."""
+        if event.button.id == "inject-button":
+            # Gather the info needed for the confirmation screen
+            kind = self.experiment_data["kind"]
+            action = self.current_fields["action"]
+            target = f"namespace={self.current_fields['namespace']}\nlabels={self.current_fields['labelSelectors']}"
+            duration = self.current_fields["duration"]
+            
+            # Push the confirmation screen first
+            self.app.push_screen(ConfirmationScreen(kind, action, target, duration))
 
     def on_mount(self) -> None:
         """Update the preview on mount and focus the parameters list."""
