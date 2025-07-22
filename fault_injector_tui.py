@@ -71,7 +71,7 @@ spec:
         else:
             yaml_string += f"  {key}: {value}\n"
 
-    return yaml_string + "```"
+    return yaml_string + "\n```"
 
 
 class ExperimentSelectionScreen(Screen):
