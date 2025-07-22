@@ -4,3 +4,4 @@ pynput
 pyyaml
 tempfile
 keyboard
+aiohttp

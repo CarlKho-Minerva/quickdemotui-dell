@@ -1,6 +1,8 @@
-# fault_injector_tui.py (Updated for Screen 3)
+# fault_injector_tui.py (Updated for Screen 4)
 
 import asyncio
+import json
+import aiohttp
 from textual.app import App, ComposeResult
 from textual.widgets import (
     Header,
@@ -12,10 +14,54 @@ from textual.widgets import (
     Button,
     Input,
     Log,
+    Markdown,
 )
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal, Vertical, ScrollableContainer
 from textual.binding import Binding
 from textual.screen import Screen
+
+# Gemini API Configuration
+GEMINI_API_KEY = "AIzaSyA-Nt4_aAzs7VfDj3m7n7T8uI1FMx1skIg"
+GEMINI_API_URL = ("https://generativelanguage.googleapis.com/v1beta/models/"
+                  "gemini-2.5-flash:generateContent")
+
+
+async def generate_chaos_analysis(kind: str, action: str, target: str, duration: str, logs: str) -> str:
+    """Generate analysis using Gemini API."""
+    prompt = f"""Analyze this chaos engineering experiment and provide a CONCISE technical summary:
+
+Experiment: {kind} - {action} for {duration}
+Target: {target}
+Logs: {logs}
+
+Provide a brief analysis with:
+1. What happened during the experiment
+2. System resilience observations  
+3. Quick recommendations
+
+Keep response under 200 words and well-formatted."""
+
+    payload = {
+        "contents": [{
+            "parts": [{"text": prompt}]
+        }]
+    }
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{GEMINI_API_URL}?key={GEMINI_API_KEY}",
+                json=payload,
+                headers={"Content-Type": "application/json"}
+            ) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return data["candidates"][0]["content"]["parts"][0]["text"]
+                else:
+                    return f"**Error**: Failed to generate analysis (HTTP {response.status})"
+    except Exception as e:
+        return f"**Error**: Failed to connect to Gemini API - {str(e)}"
+
 
 # --- Data for the fault experiments ---
 # Now includes a list of editable fields for each experiment
@@ -117,19 +163,20 @@ class ExperimentSelectionScreen(Screen):
 
 class MonitoringScreen(Screen):
     """A screen to display live logs and status of an active chaos experiment."""
-    
+
     def __init__(self, kind: str, action: str, target: str, duration: str) -> None:
         super().__init__()
         self.kind = kind
         self.action = action
         self.target = target
         self.duration = duration
-        
+        self.logs = []  # Store logs for analysis
+
     def compose(self) -> ComposeResult:
         yield Header(name=f"Monitoring: {self.kind}/{self.action}")
         with Horizontal():
             with Vertical(id="options-pane"):
-                yield Static(f"[b]Status:[/b] ACTIVE", id="status-line")
+                yield Static("[b]Status:[/b] ACTIVE", id="status-line")
                 yield Static(f"[b]Kind:[/b] {self.kind}")
                 yield Static(f"[b]Action:[/b] {self.action}")
                 yield Static(f"[b]Target:[/b]\n{self.target}")
@@ -140,40 +187,46 @@ class MonitoringScreen(Screen):
                 yield Log(id="log-output", highlight=True)
         yield Footer()
 
+    def log_and_store(self, message: str):
+        """Log message and store for later analysis."""
+        self.logs.append(message)
+        log_widget = self.query_one(Log)
+        log_widget.write_line(message)
+
     async def on_mount(self) -> None:
         """Start the simulated log streaming when the screen is mounted."""
-        log_widget = self.query_one(Log)
-        
-        # Simulate a real process
-        log_widget.write_line(f"> Injecting chaos experiment '{self.kind.lower()}-example'...")
+
+        # Simulate a real process and collect logs
+        self.log_and_store(f"> Injecting chaos experiment '{self.kind.lower()}-example'...")
         await asyncio.sleep(0.5)
-        log_widget.write_line("> SUCCESS: Chaos object created.")
+        self.log_and_store("> SUCCESS: Chaos object created.")
         await asyncio.sleep(0.5)
-        log_widget.write_line(f"> Monitoring logs for pods matching selector '{self.target.splitlines()[1].strip()}'...")
+        self.log_and_store(f"> Monitoring logs for pods matching selector '{self.target.splitlines()[1].strip()}'...")
         await asyncio.sleep(1)
-        log_widget.write_line("> [Output of kubectl logs -f --selector='...'...]")
+        self.log_and_store("> [Output of kubectl logs -f --selector='...'...]")
         await asyncio.sleep(1)
-        log_widget.write_line("> [NOT VISIBLE: Output of system-wide kubectl logs running in BACKGROUND]")
+        self.log_and_store("> [NOT VISIBLE: Output of system-wide kubectl logs running in BACKGROUND]")
         await asyncio.sleep(2)
-        log_widget.write_line(f"> CHAOS EVENT: Pod 'tikv-0' has been killed.")
+        self.log_and_store("> CHAOS EVENT: Pod 'tikv-0' has been killed.")
         await asyncio.sleep(0.5)
-        log_widget.write_line(f"> Experiment '{self.kind.lower()}-example' completed.")
-        log_widget.write_line("> Capturing final logs for analysis...")
+        self.log_and_store(f"> Experiment '{self.kind.lower()}-example' completed.")
+        self.log_and_store("> Capturing final logs for analysis...")
         await asyncio.sleep(1)
         self.query_one("#status-line").update("[b]Status:[/b] COMPLETE")
-        # In a real app, you might then show a "New Experiment" button or auto-pop the screen.
 
-
+        # After logs are done, transition to report screen
+        raw_logs = "\n".join(self.logs)
+        self.app.push_screen(ReportScreen(self.kind, self.action, self.target, self.duration, raw_logs))
 class ConfirmationScreen(Screen):
     """A confirmation screen before executing potentially destructive chaos experiments."""
-    
+
     def __init__(self, kind: str, action: str, target: str, duration: str) -> None:
         super().__init__()
         self.kind = kind
         self.action = action
         self.target = target
         self.duration = duration
-        
+
     def compose(self) -> ComposeResult:
         yield Header(name="⚠️  Confirm Chaos Injection")
         with Horizontal():
@@ -190,7 +243,7 @@ class ConfirmationScreen(Screen):
                 yield Static(f"  {self.target}")
                 yield Static("")
                 yield Static("[b yellow]This may cause service disruption![/b yellow]")
-                
+
                 with Horizontal():
                     yield Button("Execute", variant="error", id="confirm-button")
                     yield Button("Cancel", variant="default", id="cancel-button")
@@ -258,8 +311,8 @@ class ModifyConfigScreen(Screen):
             action = self.current_fields["action"]
             target = f"namespace={self.current_fields['namespace']}\nlabels={self.current_fields['labelSelectors']}"
             duration = self.current_fields["duration"]
-            
-            # Push the confirmation screen first
+
+            # Push the confirmation screen first (as requested)
             self.app.push_screen(ConfirmationScreen(kind, action, target, duration))
 
     def on_mount(self) -> None:
@@ -395,6 +448,72 @@ class InputScreen(Screen):
         if event.list_view.id == "options-list" and event.item is not None:
             selected_option = str(event.item.query_one(Label).renderable)
             self.dismiss((self.field_name, selected_option))
+
+
+class ReportScreen(Screen):
+    """Screen to show AI-generated analysis and raw logs."""
+
+    BINDINGS = [Binding("f", "toggle_fullscreen", "Fullscreen Logs")]
+
+    def __init__(self, kind: str, action: str, target: str, duration: str, raw_logs: str):
+        super().__init__()
+        self.kind = kind
+        self.action = action
+        self.target = target
+        self.duration = duration
+        self.raw_logs = raw_logs
+        self.analysis = "🤖 Generating AI analysis..."
+
+    def compose(self) -> ComposeResult:
+        yield Header(name=f"Report: {self.kind}/{self.action}")
+        with ScrollableContainer(id="report-container"):
+            yield Markdown("## 🤖 AI Analysis", id="analysis-md")
+            yield Markdown("## 📋 Raw Logs")
+            yield Markdown(f"```\n{self.raw_logs}\n```", id="raw-logs-md")
+            with Horizontal():
+                yield Button("New Experiment", variant="primary", id="new-exp-button")
+                yield Button("Fullscreen Logs", variant="default", id="fullscreen-button")
+        yield Footer()
+
+    async def on_mount(self) -> None:
+        """Generate AI analysis when screen loads."""
+        # Generate analysis using Gemini API
+        analysis = await generate_chaos_analysis(
+            self.kind, self.action, self.target, self.duration, self.raw_logs
+        )
+        # Update the analysis markdown content
+        analysis_widget = self.query_one("#analysis-md")
+        analysis_widget.update(f"## 🤖 AI Analysis\n\n{analysis}")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button press to start a new experiment."""
+        if event.button.id == "new-exp-button":
+            # Go all the way back to the first screen
+            self.app.pop_screen()  # report
+            self.app.pop_screen()  # monitoring
+            self.app.pop_screen()  # confirmation
+            # Now back to config screen, user can go back to selection if needed
+        elif event.button.id == "fullscreen-button":
+            self.app.push_screen(FullScreenLogScreen(self.raw_logs))
+
+    def action_toggle_fullscreen(self) -> None:
+        """Action to toggle fullscreen mode for the logs."""
+        self.app.push_screen(FullScreenLogScreen(self.raw_logs))
+
+
+class FullScreenLogScreen(Screen):
+    """A screen to display just the logs, for better readability."""
+
+    def __init__(self, logs: str):
+        super().__init__()
+        self.logs = logs
+
+    def compose(self) -> ComposeResult:
+        yield Header(name="Full Screen Logs")
+        # A ScrollableContainer allows the user to scroll through long logs
+        with ScrollableContainer():
+            yield Static(self.logs)
+        yield Footer()
 
 
 class FaultInjectorApp(App):
