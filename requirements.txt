@@ -4,3 +4,5 @@ pynput
 pyyaml
 tempfile
 keyboard
+aiohttp
+python-dotenv
